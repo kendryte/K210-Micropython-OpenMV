@@ -1,0 +1,78 @@
+before_script:
+  - uname -a
+  - cat /etc/issue
+  - apt-get update
+  - apt-get install -y -qq lib32ncurses5 lib32z1 > /dev/null
+  - apt-get install -y git
+  - apt-get install -y python 
+  - apt-get install -y scons
+  - apt-get install -y python-pip
+  - apt-get install -y zlib1g-dev
+  - pip install requests
+  - pip install clint
+  - echo machine git.rt-thread.com login $CI_REGISTRY_USER password $CI_REGISTRY_PASSWORD >> ~/.netrc
+  - echo machine github.com login $CI_REGISTRY_USER password $CI_REGISTRY_PASSWORD >> ~/.netrc
+  - git config --global http.sslVerify false
+  - git submodule sync --recursive
+  - git submodule update --init --recursive
+  - export RTT_ROOT=`pwd`/src/rt-thread
+  - export RTT_CC='gcc'
+  - export CPUS=$(cat /proc/cpuinfo | grep "processor" | sort | uniq | wc -l)
+  - CPUS=$(($CPUS>2?$CPUS-1:1)) #reserve CPU
+  - if [ ! -d ~/.env ]
+  - then 
+  - mkdir ~/.env
+  - mkdir ~/.env/local_pkgs
+  - mkdir ~/.env/packages
+  - git clone https://github.com/RT-Thread/packages.git ~/.env/packages/packages
+  - git clone https://github.com/RT-Thread/env.git ~/.env/tools/scripts
+  - echo -e "source \"$PKGS_DIR/packages/Kconfig\"\n \c" >> ~/.env/packages/Kconfig
+  - fi
+  - export PATH=~/.env/tools/scripts:$PATH
+  - pkgs --upgrade
+
+stages:
+  - build
+
+build-bootloader:
+  stage: build
+  script:
+    - curl -s http://download.lan.rt-thread.com/download/xpack-riscv-none-embed-gcc-8.3.0-1.2-linux-x64.tar.gz | tar xzf - -C /opt
+    - export RTT_EXEC_PATH=/opt/xpack-riscv-none-embed-gcc-8.3.0-1.2/bin
+    - $RTT_EXEC_PATH/riscv-none-embed-gcc --version
+    - pushd ./src/projects/kd233-boot
+    - pkgs --force-update
+    - scons -j$CPUS
+    - popd
+  artifacts:
+    paths:
+    - src/projects/kd233-boot/rtthread.bin
+
+build-bridge:
+  stage: build
+  script:
+    - curl -s http://download.lan.rt-thread.com/download/gcc-arm-none-eabi-5_4-2016q3-20160926-linux.tar.bz2 | tar xjf - -C /opt
+    - export RTT_EXEC_PATH=/opt/gcc-arm-none-eabi-5_4-2016q3/bin
+    - $RTT_EXEC_PATH/arm-none-eabi-gcc --version
+    - pushd ./src/bridge/stm32f411
+    - pkgs --force-update
+    - scons -j$CPUS
+    - popd
+  artifacts:
+    paths:
+    - src/bridge/stm32f411/rtthread.bin
+
+build:
+  stage: build
+  script:
+    - curl -s http://download.lan.rt-thread.com/download/xpack-riscv-none-embed-gcc-8.3.0-1.2-linux-x64.tar.gz | tar xzf - -C /opt
+    - export RTT_EXEC_PATH=/opt/xpack-riscv-none-embed-gcc-8.3.0-1.2/bin
+    - $RTT_EXEC_PATH/riscv-none-embed-gcc --version
+    - pushd ./src/projects/omv-kd233
+    - pkgs --force-update
+    - scons -j$CPUS
+    - popd
+  artifacts:
+    paths:
+    - src/projects/omv-kd233/rtthread.bin
+

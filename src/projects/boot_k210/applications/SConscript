@@ -1,0 +1,11 @@
+from building import *
+
+cwd     = GetCurrentDir()
+src     = Glob('*.c') + Glob('*.cpp')
+CPPPATH = [cwd]
+LIBS = ['rt_ota_gcc20201115']
+LIBPATH = [cwd]
+
+group = DefineGroup('Applications', src, depend = [''], CPPPATH = CPPPATH, LIBPATH = LIBPATH, LIBS = LIBS)
+
+Return('group')

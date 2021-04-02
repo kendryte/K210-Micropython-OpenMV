@@ -1,0 +1,38 @@
+*.pyc
+*.map
+*.dblite
+*.elf
+*.bin
+*.hex
+*.axf
+*.pdb
+*.idb
+*.ilk
+*.old
+build
+Debug
+documentation/html
+*~
+*.o
+*.obj
+*.bak
+*.dep
+*.lib
+*.i
+*.d
+tools/kconfig-frontends/kconfig-mconf
+packages
+
+cconfig.h
+GPUCache
+
+#cscope files
+cscope.*
+ncscope.*
+
+#ctag files
+tags
+
+#mac .DS_Store File
+.DS_Store
+.vscode
