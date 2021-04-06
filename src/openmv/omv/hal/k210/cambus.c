@@ -20,6 +20,7 @@
 #include "fpioa.h"
 #include "sysctl.h"
 #include "i2c.h"
+#include "sleep.h"
 #include <rtthread.h>
 
 static int g_dvp_finish_flag = 0;
@@ -312,7 +313,7 @@ int cambus_init(omvhal_cambus_t *bus)
     bus->reg_len = 16;
     dvp_init(bus->reg_len);
 
-    dvp_set_xclk_rate(50000000);
+    dvp_set_xclk_rate(40000000);
     dvp_enable_burst();
     dvp_set_output_enable(0, 1);
     dvp_set_output_enable(1, 1);
@@ -364,7 +365,8 @@ int cambus_scan(omvhal_cambus_t *bus)
 int cambus_init_gc0328(omvhal_cambus_t *bus)
 {
     /* Init DVP IO map and function settings (gc0328)*/
-    fpioa_set_function(BSP_CAMERA_CMOS_PWDN_PIN_GC0328 , FUNC_CMOS_PWDN);
+    fpioa_set_function(BSP_CAMERA_CMOS_PWDN_PIN, FUNC_CMOS_PWDN);
+    // fpioa_set_function(BSP_CAMERA_CMOS_PWDN_PIN_GC0328, FUNC_CMOS_PWDN);
     fpioa_set_function(BSP_CAMERA_CMOS_XCLK_PIN, FUNC_CMOS_XCLK);
     fpioa_set_function(BSP_CAMERA_CMOS_VSYNC_PIN, FUNC_CMOS_VSYNC);
     fpioa_set_function(BSP_CAMERA_CMOS_HREF_PIN, FUNC_CMOS_HREF);
@@ -379,7 +381,7 @@ int cambus_init_gc0328(omvhal_cambus_t *bus)
     bus->reg_len = 8;
     dvp_init(bus->reg_len);
 
-    dvp_set_xclk_rate(50000000);
+    dvp_set_xclk_rate(24000000);
     dvp_enable_burst();
     dvp_set_output_enable(0, 1);
     dvp_set_output_enable(1, 1);

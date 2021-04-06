@@ -1,5 +1,6 @@
 #include "k210cam.h"
 #include "ov5640_regs.h"
+#include "k210cambus.h"
 
 #include <rtthread.h>
 
@@ -288,16 +289,6 @@ static const uint16_t default_regs[][2] =
     {0, 0}
 };
 
-static int cambus_writeb2(k210cambus_t *bus, uint8_t addr, uint16_t reg, uint8_t d)
-{
-    return bus->writereg(bus, addr, reg, d);
-}
-
-static int cambus_readb2(k210cambus_t *bus, uint8_t addr, uint16_t reg, uint8_t *d)
-{
-    return bus->readreg(bus, addr, reg, d);
-}
-
 static int ov_reset(k210sensor_t *sensor)
 {
     readout_x = 0;
@@ -309,15 +300,15 @@ static int ov_reset(k210sensor_t *sensor)
     hts_target = 0;
 
     // Reset all registers
-    int ret = cambus_writeb2(&sensor->cambus, sensor->slv_addr, SCCB_SYSTEM_CTRL_1, 0x11);
-    ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, SYSTEM_CTROL0, 0x82);
+    int ret = cambus_writeb(&sensor->cambus, sensor->slv_addr, SCCB_SYSTEM_CTRL_1, 0x11);
+    ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, SYSTEM_CTROL0, 0x82);
 
     // Delay 5 ms
     rt_thread_mdelay(5);
 
     for (int i = 0; default_regs[i][0]; i++) 
     {
-        ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, default_regs[i][0], default_regs[i][1]);
+        ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, default_regs[i][0], default_regs[i][1]);
     }
 
     // Delay 300 ms
@@ -331,7 +322,7 @@ static int ov_get_chipid(k210sensor_t *sensor)
     return 0;
 }
 
-static int ov_set_pixformat(k210sensor_t *sensor, k210sensor_pixformat_t pixformat)
+static int ov_set_pixformat(k210sensor_t *sensor, k210cambus_pixformat_t pixformat)
 {
     uint8_t reg;
     int ret = 0;
@@ -339,37 +330,37 @@ static int ov_set_pixformat(k210sensor_t *sensor, k210sensor_pixformat_t pixform
     switch (pixformat)
     {
     case PIXFORMAT_GRAYSCALE:
-        ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL, 0x10);
-        ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL_MUX, 0x00);
+        ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL, 0x10);
+        ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL_MUX, 0x00);
         break;
     case PIXFORMAT_RGB565:
-        ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL, 0x61);
-        ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL_MUX, 0x01);
+        ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL, 0x61);
+        ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL_MUX, 0x01);
         break;
     case PIXFORMAT_YUV422:
-        ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL, 0x32);
-        ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL_MUX, 0x00);
+        ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL, 0x32);
+        ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL_MUX, 0x00);
         break;
     case PIXFORMAT_BAYER:
-        ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL, 0x00);
-        ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL_MUX, 0x01);
+        ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL, 0x00);
+        ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL_MUX, 0x01);
         break;
     case PIXFORMAT_JPEG:
-        ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL, 0x30);
-        ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL_MUX, 0x00);
+        ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL, 0x30);
+        ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, FORMAT_CONTROL_MUX, 0x00);
         break;
     default:
         return -1;
     }
 
-    ret |= cambus_readb2(&sensor->cambus, sensor->slv_addr, TIMING_TC_REG_21, &reg);
-    ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, TIMING_TC_REG_21, (reg & 0xDF) | ((pixformat == PIXFORMAT_JPEG) ? 0x20 : 0x00));
+    ret |= cambus_readb(&sensor->cambus, sensor->slv_addr, TIMING_TC_REG_21, &reg);
+    ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, TIMING_TC_REG_21, (reg & 0xDF) | ((pixformat == PIXFORMAT_JPEG) ? 0x20 : 0x00));
 
-    ret |= cambus_readb2(&sensor->cambus, sensor->slv_addr, SYSTEM_RESET_02, &reg);
-    ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, SYSTEM_RESET_02, (reg & 0xE3) | ((pixformat == PIXFORMAT_JPEG) ? 0x00 : 0x1C));
+    ret |= cambus_readb(&sensor->cambus, sensor->slv_addr, SYSTEM_RESET_02, &reg);
+    ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, SYSTEM_RESET_02, (reg & 0xE3) | ((pixformat == PIXFORMAT_JPEG) ? 0x00 : 0x1C));
 
-    ret |= cambus_readb2(&sensor->cambus, sensor->slv_addr, CLOCK_ENABLE_02, &reg);
-    ret |= cambus_writeb2(&sensor->cambus, sensor->slv_addr, CLOCK_ENABLE_02, (reg & 0xD7) | ((pixformat == PIXFORMAT_JPEG) ? 0x28 : 0x00));
+    ret |= cambus_readb(&sensor->cambus, sensor->slv_addr, CLOCK_ENABLE_02, &reg);
+    ret |= cambus_writeb(&sensor->cambus, sensor->slv_addr, CLOCK_ENABLE_02, (reg & 0xD7) | ((pixformat == PIXFORMAT_JPEG) ? 0x28 : 0x00));
 
     return ret;
 }

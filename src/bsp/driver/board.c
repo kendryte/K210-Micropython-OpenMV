@@ -82,6 +82,7 @@ void rt_hw_board_init(void)
     sysctl_pll_set_freq(SYSCTL_PLL0, 800000000UL);
     sysctl_pll_set_freq(SYSCTL_PLL1, 400000000UL);
     sysctl_pll_set_freq(SYSCTL_PLL2, 45158400UL);
+    sysctl_clock_set_threshold(SYSCTL_THRESHOLD_APB1, 2);
     /* Init FPIOA */
     fpioa_init();
 

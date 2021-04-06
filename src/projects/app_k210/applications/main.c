@@ -11,6 +11,9 @@
 #include <rtthread.h>
 #include <stdio.h>
 
+extern void mpy_main(const char *filename);
+void omv_main();
+
 static  void    py_main(void);
 static  int32_t msh_wait(uint32_t no);
 

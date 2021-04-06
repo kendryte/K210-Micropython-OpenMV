@@ -328,5 +328,5 @@ const uint16_t *sensor_get_color_palette();
 // Default snapshot function.
 int sensor_snapshot(sensor_t *sensor, image_t *image, streaming_cb_t streaming_cb);
 
-void gc0328_switch(int sel);
+void sensor_switch(int sel);
 #endif /* __SENSOR_H__ */

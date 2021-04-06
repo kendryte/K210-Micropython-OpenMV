@@ -127,9 +127,29 @@ STATIC mp_obj_t make_new()
 	k210_cam_obj_t *self = m_new_obj_with_finaliser(k210_cam_obj_t);
 
 	self->base.type = &k210_cam_type;
+    self->sensor.inited = 0;
 
     return self;
 }
+
+static mp_obj_t k210_cam_switch(mp_obj_t self, mp_obj_t sel) 
+{
+    k210_cam_obj_t *obj = (k210_cam_obj_t *)self;
+    k210sensor_t *s = &obj->sensor;
+    if (mp_obj_get_type(sel) != &mp_type_int)
+        mp_raise_ValueError("Invalid Value");
+    
+    int select = mp_obj_get_int(sel);
+    if (select == 1)
+        k210sensor_switch(s, 1);
+    else if (select == 0)
+        k210sensor_switch(s, 0);
+    else
+        mp_raise_ValueError("Invalid Value");
+
+    return mp_const_none;
+}
+STATIC MP_DEFINE_CONST_FUN_OBJ_2(k210_cam_switch_obj, k210_cam_switch);
 
 STATIC const mp_rom_map_elem_t locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR___del__), MP_ROM_PTR(&k210_cam_del_obj)},
@@ -138,6 +158,7 @@ STATIC const mp_rom_map_elem_t locals_dict_table[] = {
     {MP_ROM_QSTR(MP_QSTR_set_pixformat), MP_ROM_PTR(&k210_cam_set_pixformat_obj)},
     {MP_ROM_QSTR(MP_QSTR_set_framesize), MP_ROM_PTR(&k210_cam_set_framesize_obj)},
     {MP_ROM_QSTR(MP_QSTR_snapshot), MP_ROM_PTR(&k210_cam_snapshot_obj)},
+    {MP_ROM_QSTR(MP_QSTR_sw), MP_ROM_PTR(&k210_cam_switch_obj)},
 
     {MP_ROM_QSTR(MP_QSTR_RGB565), MP_ROM_INT(PIXFORMAT_RGB565)},   /* 2BPP/RGB565*/
     {MP_ROM_QSTR(MP_QSTR_YUV422), MP_ROM_INT(PIXFORMAT_YUV422)},   /* 2BPP/YUV422*/

@@ -11,6 +11,7 @@
 #include <stdarg.h>
 #include "py/mphal.h"
 #include "py/nlr.h"
+#include "py/runtime.h"
 //#include "pin.h"
 
 #if 1//MICROPY_PY_SENSOR
@@ -737,6 +738,22 @@ static mp_obj_t py_sensor_read_reg(mp_obj_t addr) {
     return mp_obj_new_int(sensor_read_reg(mp_obj_get_int(addr)));
 }
 
+static mp_obj_t py_sensor_switch(mp_obj_t pos_arg) 
+{
+    if (mp_obj_get_type(pos_arg) != &mp_type_int)
+        mp_raise_ValueError("Invalid Value");
+    
+    int select = mp_obj_get_int(pos_arg);
+    if (select == 1)
+        sensor_switch(1);
+    else if (select == 0)
+        sensor_switch(0);
+    else
+        mp_raise_ValueError("Invalid Value");
+
+    return mp_const_none;
+}
+
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(py_sensor__init__obj,              py_sensor__init__);
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(py_sensor_reset_obj,               py_sensor_reset);
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_sensor_sleep_obj,               py_sensor_sleep);
@@ -784,6 +801,7 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_sensor_set_color_palette_obj,   py_sensor_se
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(py_sensor_get_color_palette_obj,   py_sensor_get_color_palette);
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(py_sensor_write_reg_obj,           py_sensor_write_reg);
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_sensor_read_reg_obj,            py_sensor_read_reg);
+STATIC MP_DEFINE_CONST_FUN_OBJ_1(py_sensor_switch_obj,              py_sensor_switch);
 
 STATIC const mp_map_elem_t globals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR___name__),            MP_OBJ_NEW_QSTR(MP_QSTR_sensor)},
@@ -922,6 +940,7 @@ STATIC const mp_map_elem_t globals_dict_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_get_color_palette),   (mp_obj_t)&py_sensor_get_color_palette_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR___write_reg),         (mp_obj_t)&py_sensor_write_reg_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR___read_reg),          (mp_obj_t)&py_sensor_read_reg_obj },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_sw),                  (mp_obj_t)&py_sensor_switch_obj},
 };
 
 STATIC MP_DEFINE_CONST_DICT(globals_dict, globals_dict_table);

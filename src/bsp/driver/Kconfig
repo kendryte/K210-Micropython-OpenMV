@@ -416,10 +416,6 @@ config BSP_USING_CAMERA
         config BSP_CAMERA_CMOS_HREF_PIN
             int "HREF Pin"
             default 17
-
-        config BSP_CAMERA_CMOS_PWDN_PIN_GC0328
-            int "PWDN Pin for GC0328"
-            default 11 
     endif
 
 config BSP_USING_BRIDGE

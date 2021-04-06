@@ -1012,7 +1012,7 @@ int sensor_snapshot(sensor_t *sensor, image_t *image, streaming_cb_t streaming_c
     // first to save space before being cropped until it fits.
     sensor_check_buffsize();
 
-    if (cambus_read_pixels(&sensor->cambus, MAIN_FB()->pixels, 100) != 0)
+    if (cambus_read_pixels(&sensor->cambus, MAIN_FB()->pixels, 200) != 0)
         return -5;
 
     // Fix the BPP.
@@ -1039,7 +1039,7 @@ int sensor_snapshot(sensor_t *sensor, image_t *image, streaming_cb_t streaming_c
     return 0;
 }
 
-void gc0328_switch(int sel){
+void sensor_switch(int sel){
     if((sensor.chip_id != GC0328_ID) || (sensor.slv_addr != GC0328_ADDR)){
         return;
     }
