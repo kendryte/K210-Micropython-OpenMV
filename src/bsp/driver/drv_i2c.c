@@ -13,14 +13,11 @@
 
 #include "board.h"
 #include "i2c.h"
+#include "gpiohs.h"
+#include "utils.h"
+#include "sleep.h"
 
 #ifdef RT_USING_I2C
-
-typedef struct
-{
-    struct rt_i2c_bus_device busdev;
-    volatile i2c_t *i2c;
-} ki2c_t;
 
 static int ki2c_send(volatile i2c_t *i2c_adapter, uint8_t *send_buf, uint32_t send_buf_len)
 {
@@ -111,22 +108,22 @@ static rt_size_t _i2c_mst_xfer(struct rt_i2c_bus_device *bus,
                                rt_uint32_t num)
 {
     rt_size_t i;
-    ki2c_t *kbus = (ki2c_t *)bus;
+    i2c_t *kbus = (i2c_t *)bus->priv;
     int status;
     int waittx = 0;
 
     RT_ASSERT(bus != RT_NULL);
     if(msgs[0].flags & RT_I2C_ADDR_10BIT)
     {
-        ki2c_setaddr(kbus->i2c, msgs[0].addr, 10);
+        ki2c_setaddr(kbus, msgs[0].addr, 10);
     }
     else
     {
-        ki2c_setaddr(kbus->i2c, msgs[0].addr, 7);
+        ki2c_setaddr(kbus, msgs[0].addr, 7);
     }
     
     
-    ki2c_clearerr(kbus->i2c);
+    ki2c_clearerr(kbus);
 
     for (i = 0; i < num; i++)
     {
@@ -134,11 +131,11 @@ static rt_size_t _i2c_mst_xfer(struct rt_i2c_bus_device *bus,
 
         if (msgs[i].flags & RT_I2C_RD)
         {
-            status = ki2c_recv(kbus->i2c, msgs[i].buf, msgs[i].len);
+            status = ki2c_recv(kbus, msgs[i].buf, msgs[i].len);
         }
         else
         {
-            status = ki2c_send(kbus->i2c, msgs[i].buf, msgs[i].len);
+            status = ki2c_send(kbus, msgs[i].buf, msgs[i].len);
             waittx = 1;
         }
 
@@ -148,7 +145,7 @@ static rt_size_t _i2c_mst_xfer(struct rt_i2c_bus_device *bus,
 
     if (waittx)
     {
-        if (ki2c_waittx(kbus->i2c, 2000) != 0)
+        if (ki2c_waittx(kbus, 2000) != 0)
             i = 0;
     }
 
@@ -156,62 +153,188 @@ _out:
     return i;
 }
 
-static rt_err_t _i2c_bus_control(struct rt_i2c_bus_device *bus,
-                                 rt_uint32_t cmd,
-                                 rt_uint32_t arg)
-{
-    return 0;
-}
-
-static const struct rt_i2c_bus_device_ops _i2c_ops =
+static const struct rt_i2c_bus_device_ops i2c_ops =
 {
     .master_xfer = _i2c_mst_xfer,
     .slave_xfer = RT_NULL,
-    .i2c_bus_control = _i2c_bus_control,
+    .i2c_bus_control = RT_NULL,
 };
 
-#ifdef BSP_USING_I2C0
-ki2c_t _i2c0 =
-{
-    .i2c = (volatile i2c_t *)I2C0_BASE_ADDR,
-};
-#endif
+#ifdef RT_USING_I2C_BITOPS
 
-#ifdef BSP_USING_I2C1
-ki2c_t _i2c1 =
-{
-    .i2c = (volatile i2c_t *)I2C1_BASE_ADDR,
-};
-#endif
+typedef struct pin_info_s {
+    uint32_t    scl;
+    uint32_t    sda;
+} pin_info_t;
 
-#ifdef BSP_USING_I2C2
-ki2c_t _i2c2 =
+static void set_sda(void *data, rt_int32_t state)
 {
-    .i2c = (volatile i2c_t *)I2C2_BASE_ADDR,
+    pin_info_t  *pin = (pin_info_t *)data;
+    /* state = 1: disable output. state = 0: enable output.*/
+    set_gpio_bit(gpiohs->output_en.u32, pin->sda, !state);  
+}
+
+static void set_scl(void *data, rt_int32_t state)
+{ 
+    pin_info_t  *pin = (pin_info_t *)data;
+    /* state = 1: disable output. state = 0: enable output.*/
+    set_gpio_bit(gpiohs->output_en.u32, pin->scl, !state);
+}
+
+static rt_int32_t get_sda(void *data)
+{
+    pin_info_t  *pin = (pin_info_t *)data;
+    /* disable output.*/
+    set_gpio_bit(gpiohs->output_en.u32, pin->sda, 0);
+
+    return get_gpio_bit(gpiohs->input_val.u32, pin->sda);
+}
+
+static rt_int32_t get_scl(void *data)
+{
+    pin_info_t  *pin = (pin_info_t *)data;
+    /* disable output.*/
+    set_gpio_bit(gpiohs->output_en.u32, pin->scl, 0);
+
+    return get_gpio_bit(gpiohs->input_val.u32, pin->scl);  
+}
+
+static void udelay(rt_uint32_t us)
+{
+    usleep((uint64_t)us);
+}
+
+static struct rt_i2c_bit_ops bit_ops_0 =
+{
+    RT_NULL,
+    set_sda,
+    set_scl,
+    get_sda,
+    get_scl,
+    udelay,
+    5,
+    5
 };
+
+static struct rt_i2c_bit_ops bit_ops_1 =
+{
+    RT_NULL,
+    set_sda,
+    set_scl,
+    get_sda,
+    get_scl,
+    udelay,
+    5,
+    5
+};
+
+static struct rt_i2c_bit_ops bit_ops_2 =
+{
+    RT_NULL,
+    set_sda,
+    set_scl,
+    get_sda,
+    get_scl,
+    udelay,
+    5,
+    5
+};
+
+extern int get_pin_channel(rt_base_t pin_index);
 #endif
 
 int rt_hw_i2c_init(void)
 {
+    struct  rt_i2c_bus_device *busdev;
+
 #ifdef BSP_USING_I2C0
-    _i2c0.busdev.ops = &_i2c_ops;
+    static  struct rt_i2c_bus_device i2c_dev0;
+    busdev = &i2c_dev0;
+
+    #ifdef RT_USING_I2C_BITOPS
+    fpioa_set_function(BSP_I2C0_SCL_PIN, FUNC_RESV0);
+    fpioa_set_function(BSP_I2C0_SDA_PIN, FUNC_RESV0);
+
+    rt_pin_write(BSP_I2C0_SCL_PIN, PIN_LOW);
+    rt_pin_write(BSP_I2C0_SDA_PIN, PIN_LOW);
+    rt_pin_mode(BSP_I2C0_SCL_PIN, PIN_MODE_INPUT_PULLUP);
+    rt_pin_mode(BSP_I2C0_SDA_PIN, PIN_MODE_INPUT_PULLUP);
+
+    static  pin_info_t  pin0;
+    pin0.scl = get_pin_channel(BSP_I2C0_SCL_PIN);
+    pin0.sda = get_pin_channel(BSP_I2C0_SDA_PIN);
+    bit_ops_0.data = (void *)&pin0;
+    
+    busdev->priv = (void *)&bit_ops_0;
+    rt_i2c_bit_add_bus(busdev, "i2c0");
+    #else
+
+    busdev->ops = &i2c_ops;
+    busdev->priv = (void *)I2C0_BASE_ADDR;
 
     i2c_init(I2C_DEVICE_0, 0, 7, 100000);
-    rt_i2c_bus_device_register(&_i2c0.busdev, "i2c0");
+    rt_i2c_bus_device_register(busdev, "i2c0");       
+    #endif
 #endif
 
 #ifdef BSP_USING_I2C1
-    _i2c1.busdev.ops = &_i2c_ops;
+    static  struct rt_i2c_bus_device i2c_dev1;
+    busdev = &i2c_dev1;
+
+    #ifdef RT_USING_I2C_BITOPS
+    fpioa_set_function(BSP_I2C1_SCL_PIN, FUNC_RESV0);
+    fpioa_set_function(BSP_I2C1_SDA_PIN, FUNC_RESV0);
+
+    rt_pin_write(BSP_I2C1_SCL_PIN, PIN_LOW);
+    rt_pin_write(BSP_I2C1_SDA_PIN, PIN_LOW);
+    rt_pin_mode(BSP_I2C1_SCL_PIN, PIN_MODE_INPUT_PULLUP);
+    rt_pin_mode(BSP_I2C1_SDA_PIN, PIN_MODE_INPUT_PULLUP);
+
+    static  pin_info_t  pin1;
+    pin1.scl = get_pin_channel(BSP_I2C1_SCL_PIN);
+    pin1.sda = get_pin_channel(BSP_I2C1_SDA_PIN);
+    bit_ops_1.data = (void *)&pin1;
+    
+    busdev->priv = (void *)&bit_ops_1;
+    rt_i2c_bit_add_bus(busdev, "i2c1");
+    #else
+
+    busdev->ops = &i2c_ops;
+    busdev->priv = (void *)I2C1_BASE_ADDR;
 
     i2c_init(I2C_DEVICE_1, 0, 7, 100000);
-    rt_i2c_bus_device_register(&_i2c1.busdev, "i2c1");
+    rt_i2c_bus_device_register(busdev, "i2c1");
+    #endif
 #endif
 
 #ifdef BSP_USING_I2C2
-    _i2c2.busdev.ops = &_i2c_ops;
+    static  struct rt_i2c_bus_device i2c_dev2;
+    busdev = &i2c_dev2;
+
+    #ifdef RT_USING_I2C_BITOPS
+    fpioa_set_function(BSP_I2C2_SCL_PIN, FUNC_RESV0);
+    fpioa_set_function(BSP_I2C2_SDA_PIN, FUNC_RESV0);
+
+    rt_pin_write(BSP_I2C2_SCL_PIN, PIN_LOW);
+    rt_pin_write(BSP_I2C2_SDA_PIN, PIN_LOW);
+    rt_pin_mode(BSP_I2C2_SCL_PIN, PIN_MODE_INPUT_PULLUP);
+    rt_pin_mode(BSP_I2C2_SDA_PIN, PIN_MODE_INPUT_PULLUP);
+
+    static  pin_info_t  pin2;
+    pin2.scl = get_pin_channel(BSP_I2C0_SCL_PIN);
+    pin2.sda = get_pin_channel(BSP_I2C0_SDA_PIN);
+    bit_ops_2.data = (void *)&pin2;
+    
+    busdev->priv = (void *)&bit_ops_2;
+    rt_i2c_bit_add_bus(busdev, "i2c2");
+    #else
+
+    busdev->ops = &i2c_ops;
+    busdev->priv = (void *)I2C2_BASE_ADDR;
 
     i2c_init(I2C_DEVICE_2, 0, 7, 100000);
-    rt_i2c_bus_device_register(&_i2c2.busdev, "i2c2");
+    rt_i2c_bus_device_register(busdev, "i2c2");
+    #endif
 #endif
     return 0;
 }

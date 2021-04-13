@@ -51,7 +51,7 @@ static int alloc_pin_channel(rt_base_t pin_index)
     return pin_alloc_table[pin_index];
 }
 
-static int get_pin_channel(rt_base_t pin_index)
+int get_pin_channel(rt_base_t pin_index)
 {
     return pin_alloc_table[pin_index];
 }
