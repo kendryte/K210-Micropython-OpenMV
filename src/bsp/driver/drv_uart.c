@@ -146,7 +146,7 @@ int rt_hw_uart_init(void)
 
         rt_hw_serial_register(serial,
                               "uart1",
-                              RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX,
+                              RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_INT_TX,
                               uart);
     }
 #endif
@@ -170,7 +170,7 @@ int rt_hw_uart_init(void)
 
         rt_hw_serial_register(serial,
                               "uart2",
-                              RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX,
+                              RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_INT_TX,
                               uart);
     }
 #endif
@@ -194,7 +194,7 @@ int rt_hw_uart_init(void)
 
         rt_hw_serial_register(serial,
                               "uart3",
-                              RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX,
+                              RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_INT_TX,
                               uart);
     }
 #endif
@@ -377,6 +377,7 @@ static rt_err_t rt_uart_configure(struct rt_serial_device *serial, struct serial
 static rt_err_t uart_control(struct rt_serial_device *serial, int cmd, void *arg)
 {
     struct device_uart *uart;
+    rt_uint16_t cmd_info = (rt_uint16_t)arg;
 
     uart = serial->parent.user_data;
     uart_device_number_t channel = _get_uart_channel(uart->hw_base);
@@ -389,7 +390,16 @@ static rt_err_t uart_control(struct rt_serial_device *serial, int cmd, void *arg
     case RT_DEVICE_CTRL_CLR_INT:
         /* Disable the UART Interrupt */
         rt_hw_interrupt_mask(uart->irqno);
-        _uart[channel]->IER &= ~0x1;
+        if(cmd_info == RT_DEVICE_FLAG_INT_RX) {
+            _uart[channel]->IER &= ~0x1;
+        }
+        else if(cmd_info == RT_DEVICE_FLAG_INT_TX) {
+            _uart[channel]->IER &= ~0x2;
+        }
+        else {
+             /*TOdo: support DMA.*/
+            RT_ASSERT(0);                
+        }
         break;
 
     case RT_DEVICE_CTRL_SET_INT:
@@ -397,7 +407,16 @@ static rt_err_t uart_control(struct rt_serial_device *serial, int cmd, void *arg
         rt_hw_interrupt_install(uart->irqno, uart_irq_handler,
                                 serial, serial->parent.parent.name);
         rt_hw_interrupt_umask(uart->irqno);
-        _uart[channel]->IER |= 0x1;
+        if(cmd_info == RT_DEVICE_FLAG_INT_RX) {
+            _uart[channel]->IER |= 0x1;
+        }
+        else if(cmd_info == RT_DEVICE_FLAG_INT_TX) {
+            _uart[channel]->IER |= 0x2;
+        }
+        else {
+            /*TOdo: support DMA.*/
+            RT_ASSERT(0);
+        }   
         break;
     }
 
@@ -410,9 +429,17 @@ static int drv_uart_putc(struct rt_serial_device *serial, char c)
     uart_device_number_t channel = _get_uart_channel(uart->hw_base);
     RT_ASSERT(channel != UART_DEVICE_MAX);
 
-    while (_uart[channel]->LSR & (1u << 5));
-    _uart[channel]->THR = c;
-
+    if(serial->parent.open_flag & RT_DEVICE_FLAG_INT_TX) {
+        if(_uart[channel]->LSR & (1u << 5)) {
+            return -1;
+        }
+        _uart[channel]->THR = c;        
+    }
+    else {
+        while (_uart[channel]->LSR & (1u << 5));
+        _uart[channel]->THR = c;
+    }
+    
     return (1);
 }
 
@@ -440,8 +467,17 @@ static void uart_irq_handler(int irqno, void *param)
     RT_ASSERT(channel != UART_DEVICE_MAX);
 
     /* read interrupt status and clear it */
-    if (_uart[channel]->LSR)
+    /*if (_uart[channel]->LSR)
+        rt_hw_serial_isr(serial, RT_SERIAL_EVENT_RX_IND);*/
+
+    uint8_t v_int = _uart[channel]->IIR & 0x0F;
+ 
+    if(v_int == 0x02) {
+        rt_hw_serial_isr(serial, RT_SERIAL_EVENT_TX_DONE);           
+    }
+    else if((v_int == 0x04) || (v_int == 0x0c)) {
         rt_hw_serial_isr(serial, RT_SERIAL_EVENT_RX_IND);
+    }
 }
 
 /* WEAK for SDK 0.5.6 */
