@@ -321,8 +321,8 @@ int rt_hw_i2c_init(void)
     rt_pin_mode(BSP_I2C2_SDA_PIN, PIN_MODE_INPUT_PULLUP);
 
     static  pin_info_t  pin2;
-    pin2.scl = get_pin_channel(BSP_I2C0_SCL_PIN);
-    pin2.sda = get_pin_channel(BSP_I2C0_SDA_PIN);
+    pin2.scl = get_pin_channel(BSP_I2C2_SCL_PIN);
+    pin2.sda = get_pin_channel(BSP_I2C2_SDA_PIN);
     bit_ops_2.data = (void *)&pin2;
     
     busdev->priv = (void *)&bit_ops_2;
