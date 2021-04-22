@@ -433,11 +433,10 @@ rt_size_t at_client_obj_send(at_client_t client, const char *buf, rt_size_t size
 static rt_err_t at_client_getchar(at_client_t client, char *ch, rt_int32_t timeout)
 {
     rt_err_t result = RT_EOK;
-
+    
+    rt_sem_control(client->rx_notice, RT_IPC_CMD_RESET, RT_NULL);
     while (rt_device_read(client->device, 0, ch, 1) == 0)
     {
-        rt_sem_control(client->rx_notice, RT_IPC_CMD_RESET, RT_NULL);
-
         result = rt_sem_take(client->rx_notice, rt_tick_from_millisecond(timeout));
         if (result != RT_EOK)
         {
