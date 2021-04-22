@@ -50,6 +50,12 @@ menuconfig BSP_USING_UART1
         config BSP_UART1_RXD_PIN
             int "uart1 RXD pin number"
             default 21
+        config BSP_UART1_RTS_PIN
+            int "uart1 RTS pin number (-1 for not used)"
+            default -1
+        config BSP_UART1_CTS_PIN
+            int "uart1 CTS pin number (-1 for not used)"
+            default -1            
     endif
 
 menuconfig BSP_USING_UART2
@@ -62,6 +68,12 @@ menuconfig BSP_USING_UART2
         config BSP_UART2_RXD_PIN
             int "uart2 RXD pin number"
             default 27
+        config BSP_UART2_RTS_PIN
+            int "uart2 RTS pin number (-1 for not used)"
+            default -1
+        config BSP_UART2_CTS_PIN
+            int "uart2 CTS pin number (-1 for not used)"
+            default -1               
     endif
 
 menuconfig BSP_USING_UART3
@@ -74,6 +86,12 @@ menuconfig BSP_USING_UART3
         config BSP_UART3_RXD_PIN
             int "uart3 RXD pin number"
             default 23
+        config BSP_UART3_RTS_PIN
+            int "uart3 RTS pin number (-1 for not used)"
+            default -1
+        config BSP_UART3_CTS_PIN
+            int "uart3 CTS pin number (-1 for not used)"
+            default -1               
     endif
 endmenu
 

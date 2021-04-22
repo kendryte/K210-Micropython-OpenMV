@@ -370,7 +370,10 @@ static rt_err_t rt_uart_configure(struct rt_serial_device *serial, struct serial
                           UART_SEND_FIFO_8 << 4 |
                           0x1 << 3 |
                           0x1;
-
+    if(cfg->reserved) 
+    {
+        _uart[channel]->MCR = (1<<1);       
+    }
     return (RT_EOK);
 }
 
@@ -429,17 +432,22 @@ static int drv_uart_putc(struct rt_serial_device *serial, char c)
     uart_device_number_t channel = _get_uart_channel(uart->hw_base);
     RT_ASSERT(channel != UART_DEVICE_MAX);
 
+    uint32_t fc_state = _uart[channel]->MCR & (1<<1);
+
     if(serial->parent.open_flag & RT_DEVICE_FLAG_INT_TX) {
         if(_uart[channel]->LSR & (1u << 5)) {
             return -1;
-        }
-        _uart[channel]->THR = c;        
+        }   
     }
     else {
-        while (_uart[channel]->LSR & (1u << 5));
-        _uart[channel]->THR = c;
+        if(fc_state == 0) {
+            while (_uart[channel]->LSR & (1u << 5));
+        }
+        else {
+            while ((_uart[channel]->LSR & (1u << 5)) || ((_uart[channel]->MSR & (1<<4)) == 0));
+        }
     }
-    
+    _uart[channel]->THR = c;    
     return (1);
 }
 
