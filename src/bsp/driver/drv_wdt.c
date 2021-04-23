@@ -86,18 +86,16 @@ int rt_hw_wdt_init(void)
     ops->control = wdt_control;
 
     wdt0.ops = ops;
-    wdt0.parent.user_data = (void *)0;
 
-    if (rt_hw_watchdog_register(&wdt0, "wdt0", RT_DEVICE_FLAG_DEACTIVATE, RT_NULL) != RT_EOK)
+    if (rt_hw_watchdog_register(&wdt0, "wdt0", RT_DEVICE_FLAG_DEACTIVATE, (void *)0) != RT_EOK)
     {
         rt_kprintf("wdt0 device register failed\n");
         return -RT_ERROR;
     }
 
     wdt1.ops = ops;
-    wdt1.parent.user_data = (void *)1;
 
-    if (rt_hw_watchdog_register(&wdt1, "wdt1", RT_DEVICE_FLAG_DEACTIVATE, RT_NULL) != RT_EOK)
+    if (rt_hw_watchdog_register(&wdt1, "wdt1", RT_DEVICE_FLAG_DEACTIVATE, (void *)1) != RT_EOK)
     {
         rt_kprintf("wdt1 device register failed\n");
         return -RT_ERROR;
