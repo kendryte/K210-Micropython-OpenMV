@@ -20,6 +20,8 @@
 #include <spi.h>
 #include <drv_io_config.h>
 #include <rthw.h>
+#include "dmalock.h"
+#include "sleep.h"
 
 #define DBG_TAG  "LCD"
 #define DBG_LVL  DBG_WARNING
@@ -538,7 +540,7 @@ int rt_hw_lcd_init(void)
 #if BSP_LCD_BACKLIGHT_PIN >= 0
     lcd_dev->backlight_pin              = LCD_BACKLIGHT_PIN;
 #endif
-    lcd_dev->dma_channel                = DMAC_CHANNEL0;
+    dmalock_sync_take(&lcd_dev->dma_channel, RT_WAITING_FOREVER);
     lcd_dev->spi_channel                = SPI_DEVICE_0;
     lcd_dev->lcd_info.bits_per_pixel    = 16;
     lcd_dev->lcd_info.pixel_format      = RTGRAPHIC_PIXEL_FORMAT_RGB565;

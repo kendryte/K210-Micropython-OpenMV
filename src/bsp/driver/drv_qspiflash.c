@@ -20,6 +20,7 @@
 #include "dmac.h"
 #include <string.h>
 #include <stdio.h>
+#include "dmalock.h"
 
 uint32_t spi_bus_no = 0;
 uint32_t spi_chip_select = 0;
@@ -40,13 +41,21 @@ static w25qxx_status_t w25qxx_send_data(uint8_t *cmd_buff, uint8_t cmd_len, uint
 
 static w25qxx_status_t w25qxx_receive_data_enhanced_dma(uint32_t *cmd_buff, uint8_t cmd_len, uint8_t *rx_buff, uint32_t rx_len)
 {
-    spi_receive_data_multiple_dma(DMAC_CHANNEL0, DMAC_CHANNEL1, spi_bus_no, spi_chip_select, cmd_buff, cmd_len, rx_buff, rx_len);
+    int dma_channel;
+
+    dmalock_sync_take(&dma_channel, RT_WAITING_FOREVER);
+    spi_receive_data_multiple_dma(DMAC_CHANNEL_MAX, dma_channel, spi_bus_no, spi_chip_select, cmd_buff, cmd_len, rx_buff, rx_len);
+    dmalock_release(dma_channel);
     return W25QXX_OK;
 }
 
 static w25qxx_status_t w25qxx_send_data_enhanced_dma(uint32_t *cmd_buff, uint8_t cmd_len, uint8_t *tx_buff, uint32_t tx_len)
 {
-    spi_send_data_multiple_dma(DMAC_CHANNEL0, spi_bus_no, spi_chip_select, cmd_buff, cmd_len, tx_buff, tx_len);
+    int dma_channel;
+
+    dmalock_sync_take(&dma_channel, RT_WAITING_FOREVER);
+    spi_send_data_multiple_dma(dma_channel, spi_bus_no, spi_chip_select, cmd_buff, cmd_len, tx_buff, tx_len);
+    dmalock_release(dma_channel);
     return W25QXX_OK;
 }
 

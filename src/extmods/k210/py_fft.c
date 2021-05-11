@@ -1,5 +1,5 @@
 #include <math.h>
-
+#include <rtthread.h>
 #include "py/obj.h"
 #include "py/runtime.h"
 #include "py/mphal.h"
@@ -7,7 +7,7 @@
 #include "py/binary.h"
 
 #ifdef EXTMODS_K210_FFT
-#include "dmac.h"
+#include "dmalock.h"
 #include "ffth.h"
 
 typedef struct _k210_fft_obj_t
@@ -68,11 +68,23 @@ STATIC mp_obj_t fft_run(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_ar
         //        mp_printf(&mp_plat_print, "<%d,%d>\n", fdin[i].R1, fdin[i].R2);
     }
 
-    fft_complex_uint16_dma(DMAC_CHANNEL3, DMAC_CHANNEL4, shift, direction, (uint64_t *)fdin, nitems, (uint64_t *)fdout);
-
     //return a list
     mp_obj_list_t *ret_list = m_new(mp_obj_list_t, 1);
     mp_obj_list_init(ret_list, 0);
+
+    dmac_channel_number_t send = DMAC_CHANNEL_MAX, recv = DMAC_CHANNEL_MAX;
+
+    if (dmalock_sync_take(&send, 2000))
+        goto _err1;
+    
+    if (dmalock_sync_take(&recv, 2000))
+        goto _err2;
+    
+    fft_complex_uint16_dma(DMAC_CHANNEL3, DMAC_CHANNEL4, shift, direction, (uint64_t *)fdin, nitems, (uint64_t *)fdout);
+    
+    dmalock_release(send);
+    dmalock_release(recv);
+
     mp_obj_t tuple_1[2];
 
     for (int i = 0; i < nitems / 2; i++)
@@ -88,6 +100,12 @@ STATIC mp_obj_t fft_run(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_ar
     }
 
     return MP_OBJ_FROM_PTR(ret_list);
+
+_err2:
+    dmalock_release(send);
+_err1:
+    mp_raise_msg_varg(&mp_type_OSError, "Fail to take DMA channel");
+
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(fft_run_obj, 0, fft_run);
 

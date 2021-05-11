@@ -11,6 +11,7 @@ drv_io_config.c
 drv_interrupt.c
 drv_qspiflash.c
 drv_mpymachine.c
+dmalock.c
 ''')
 CPPPATH = [cwd]
 

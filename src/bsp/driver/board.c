@@ -18,6 +18,7 @@
 #include "encoding.h"
 #include "fpioa.h"
 #include "dmac.h"
+#include "dmalock.h"
 
 void init_bss(void)
 {
@@ -90,7 +91,8 @@ void rt_hw_board_init(void)
 
     /* Dmac init */
     dmac_init();
-
+    dmalock_init();
+    
     /* initalize interrupt */
     rt_hw_interrupt_init();
     /* initialize hardware interrupt */

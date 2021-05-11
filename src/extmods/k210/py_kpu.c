@@ -17,6 +17,7 @@ extern picture_t *py_picture_cobj(mp_obj_t self);
 #include "kpu.h"
 #include "prior.h"
 #include "region_layer.h"
+#include "dmalock.h"
 
 extern int load_file_from_flash(uint32_t addr, uint8_t *data_buf, uint32_t length);
 extern int load_file_from_ff(const char *path, void* buffer, size_t model_size);
@@ -25,6 +26,7 @@ typedef struct _k210_kpu_obj_t
 {
     mp_obj_base_t base; 
     kpu_model_context_t*  kmodel_ctx;  //sipeed_model_ctx_t
+    struct rt_semaphore k_sem; 
     size_t     model_size;
     mp_obj_t   model_buffer;
     mp_obj_t   model_path;
@@ -76,10 +78,11 @@ struct model_header
     uint32_t reserved0;
 };
 
-volatile uint32_t g_ai_done_flag = 0;
+// volatile uint32_t g_ai_done_flag = 0;
 static void ai_done(void *ctx)
 {
-    g_ai_done_flag = 1;
+    // g_ai_done_flag = 1;
+    rt_sem_release((rt_sem_t)ctx);
 }
 
 STATIC mp_obj_t region_layer_get_rect(box_info_t *bx, mp_obj_list_t* out_box) {
@@ -225,6 +228,7 @@ STATIC mp_obj_t k210_kpu_make_new(const mp_obj_type_t *type, size_t n_args, size
     k210_kpu_obj_t *self = m_new_obj(k210_kpu_obj_t);
     self->base.type=&k210_kpu_type;
     self->kmodel_ctx = m_new_obj(kpu_model_context_t);
+    rt_sem_init(&self->k_sem, "kpu_sem", 0, RT_IPC_FLAG_FIFO);
     self->model_size = 0;
     self->model_buffer = NULL;
     self->model_path = NULL;
@@ -330,11 +334,11 @@ STATIC mp_obj_t py_kpu_run(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw
      enum
     {
         ARG_input,
-        ARG_dma,
+        // ARG_dma,
     };
     static const mp_arg_t allowed_args[] = {
         {MP_QSTR_input, MP_ARG_OBJ, {.u_obj = mp_const_none}},
-        {MP_QSTR_dma, MP_ARG_INT, {.u_int = 5}},
+        // {MP_QSTR_dma, MP_ARG_INT, {.u_int = 5}},
     };
     mp_arg_val_t args[MP_ARRAY_SIZE(allowed_args)];
     mp_arg_parse_all(n_args-1, pos_args+1, kw_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
@@ -373,8 +377,17 @@ STATIC mp_obj_t py_kpu_run(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw
     else{
             mp_raise_ValueError("invalid input");
     }
-    g_ai_done_flag = 0;
-    kpu_run_kmodel(km->kmodel_ctx, (uint8_t *)km->inputs_addr, args[ARG_dma].u_int, ai_done, NULL);
+
+    dmac_channel_number_t dma_ch = DMAC_CHANNEL_MAX;
+    if (dmalock_sync_take(&dma_ch, 2000))
+        mp_raise_msg_varg(&mp_type_OSError, "Fail to take DMA channel");
+
+    kpu_run_kmodel(km->kmodel_ctx, (uint8_t *)km->inputs_addr, dma_ch, ai_done, &km->k_sem);
+    if (rt_sem_take(&km->k_sem, 2000) == -RT_ETIMEOUT)
+        mp_raise_msg_varg(&mp_type_OSError, "Fail to take KPU semaphore");
+        
+    dmalock_release(dma_ch);
+
     return mp_const_none; 
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_KW(py_kpu_run_obj, 1, py_kpu_run);
@@ -382,11 +395,6 @@ STATIC MP_DEFINE_CONST_FUN_OBJ_KW(py_kpu_run_obj, 1, py_kpu_run);
 STATIC mp_obj_t py_kpu_get_output(size_t n_args, const mp_obj_t *pos_args, mp_map_t *kw_args)
 {
     k210_kpu_obj_t *km = (k210_kpu_obj_t *)pos_args[0];
-
-    if(g_ai_done_flag != 1){
-        nlr_raise(mp_obj_new_exception_msg(&mp_type_OSError, "No output of kpu run"));
-    }
-    g_ai_done_flag = 0;
 
      enum
     {

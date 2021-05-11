@@ -3,6 +3,7 @@
 
 #include "board.h"
 #include "i2s.h"
+#include "dmalock.h"
 
 //#define DBG_ENABLE
 #define DBG_LEVEL DBG_LOG
@@ -432,7 +433,14 @@ static rt_err_t _i2s_start(struct rt_audio_device *audio, int stream)
     {
         if (!(i2s->caps & AUDIO_TYPE_OUTPUT))
             return -RT_EIO;
-
+        if (i2s->txdma == DMAC_CHANNEL_MAX) 
+        {
+            if (dmalock_sync_take(&i2s->txdma, 2000))
+            {
+                LOG_E("Fail to take DMA channel");
+                return -RT_EIO;
+            }
+        }
         dmac_irq_register(i2s->txdma, dmacb, i2s, 1);
         i2s_block_seten(i2s->devno, I2S_TRANSMITTER, 1);
         ki2s_send(i2s, i2s->tx_fifo, 1024);
@@ -444,7 +452,14 @@ static rt_err_t _i2s_start(struct rt_audio_device *audio, int stream)
     {
         if (!(i2s->caps & AUDIO_TYPE_INPUT))
             return -RT_EIO;
-
+        if (i2s->rxdma == DMAC_CHANNEL_MAX)
+        {
+            if (dmalock_sync_take(&i2s->rxdma, 2000))
+            {
+                LOG_E("Fail to take DMA channel");
+                return -RT_EIO;
+            }
+        }
         dmac_set_irq(i2s->rxdma, rx_dmacb, i2s, 4);
         i2s_block_seten(i2s->rxdevno, I2S_RECEIVER, 1);
         i2s_receive_data_dma(i2s->rxdevno, (void*)i2s->rx_buf, KI2S_RX_BLKSZ, i2s->rxdma);
@@ -486,6 +501,12 @@ static rt_err_t _i2s_stop(struct rt_audio_device *audio, int stream)
             return -RT_EIO;
 
         i2s_block_seten(i2s->devno, I2S_TRANSMITTER, 0);
+
+        if (i2s->txdma != DMAC_CHANNEL_MAX)
+        {
+            dmalock_release(i2s->txdma);
+            i2s->txdma = DMAC_CHANNEL_MAX;
+        }
         LOG_I("Stop replay.");
     }
     break;
@@ -495,6 +516,12 @@ static rt_err_t _i2s_stop(struct rt_audio_device *audio, int stream)
             return -RT_EIO;
 
         i2s_block_seten(i2s->rxdevno, I2S_RECEIVER, 0);
+
+        if (i2s->rxdma != DMAC_CHANNEL_MAX)
+        {
+            dmalock_release(i2s->rxdma);
+            i2s->rxdma = DMAC_CHANNEL_MAX;
+        }
         LOG_I("Stop record.");
     }
     break;
@@ -537,7 +564,7 @@ static ki2s_t _i2s0 =
 {
     .name = "sound0",
     .devno = I2S_DEVICE_0,
-    .txdma = DMAC_CHANNEL3,
+    .txdma = DMAC_CHANNEL_MAX,
     .caps = AUDIO_TYPE_OUTPUT | AUDIO_TYPE_MIXER,
 };
 #endif
@@ -547,7 +574,7 @@ static ki2s_t _i2s1 =
 {
     .name = "sound1",
     .rxdevno = I2S_DEVICE_1,
-    .rxdma = DMAC_CHANNEL4,
+    .rxdma = DMAC_CHANNEL_MAX,
     .caps = AUDIO_TYPE_INPUT | AUDIO_TYPE_MIXER,
 };
 #endif
@@ -557,7 +584,7 @@ static ki2s_t _i2s2 =
 {
     .name = "sound2",
     .devno = I2S_DEVICE_2,
-    .txdma = DMAC_CHANNEL5,
+    .txdma = DMAC_CHANNEL_MAX,
     .caps = AUDIO_TYPE_OUTPUT | AUDIO_TYPE_MIXER;
 };
 #endif

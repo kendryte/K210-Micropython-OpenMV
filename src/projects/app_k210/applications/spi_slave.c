@@ -12,6 +12,7 @@
 #include "py/compile.h"
 #include "py/runtime.h"
 #include "usbdbg.h"
+#include "dmalock.h"
 
 #define DBG_TAG  "SLAVE"
 #define DBG_LVL  DBG_LOG
@@ -100,6 +101,9 @@ static int spi_slave_receive_hook(void *data)
 static int spi_slave_init(spi_slave_buffer_desc_t *data, uint8_t len)
 {
     fpioa_io_config_t cfg;
+    dmac_channel_number_t dma_chn = DMAC_CHANNEL_MAX;
+
+    dmalock_sync_take(&dma_chn, RT_WAITING_FOREVER);
 
     fpioa_set_function(SPI_SLAVE_CS_PIN, FUNC_SPI_SLAVE_SS);
     fpioa_set_function(SPI_SLAVE_CLK_PIN, FUNC_SPI_SLAVE_SCLK);
@@ -115,7 +119,7 @@ static int spi_slave_init(spi_slave_buffer_desc_t *data, uint8_t len)
     fpioa_set_function(SPI_SLAVE_READY_PIN, FUNC_GPIOHS0 + SPI_SLAVE_READY_IO);
     rt_pin_mode(SPI_DATA_READY_PIN, PIN_MODE_OUTPUT);
     rt_pin_write(SPI_DATA_READY_PIN, 1);
-    spi_slave_config(SPI_SLAVE_INT_IO, SPI_SLAVE_READY_IO, DMAC_CHANNEL4, data, len, spi_slave_receive_hook);
+    spi_slave_config(SPI_SLAVE_INT_IO, SPI_SLAVE_READY_IO, dma_chn, data, len, spi_slave_receive_hook);
     rt_kprintf("dual wire spi slave\n");
     return 0;
 }
@@ -132,9 +136,8 @@ int spi_dbg_init(void)
     slave_buffer_desc[2].address = rt_malloc_align(BUFFER2_LENGTH * 4, 16);
     slave_buffer_desc[2].length = BUFFER2_LENGTH;
     printf("buff2 addr: %p\n", slave_buffer_desc[2].address);
-    spi_slave_init(slave_buffer_desc, 3);
     serial_tx_buf_flush();
-    return 0;
+    return spi_slave_init(slave_buffer_desc, 3);
 }
 INIT_ENV_EXPORT(spi_dbg_init);
 

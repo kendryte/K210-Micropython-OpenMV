@@ -660,29 +660,36 @@ void spi_receive_data_normal_dma(dmac_channel_number_t dma_send_channel_num,
 {
     configASSERT(spi_num < SPI_DEVICE_MAX && spi_num != 2);
 
-    if(cmd_len == 0)
-       spi_set_tmod(spi_num, SPI_TMOD_RECV);
-    else
+    if(cmd_len && spi_get_frame_format(spi_num) == SPI_FF_STANDARD)
        spi_set_tmod(spi_num, SPI_TMOD_EEROM);
+    else
+       spi_set_tmod(spi_num, SPI_TMOD_RECV);
 
     volatile spi_t *spi_handle = spi[spi_num];
 
     spi_handle->ctrlr1 = (uint32_t)(rx_len - 1);
     spi_handle->dmacr = 0x3;
     spi_handle->ssienr = 0x01;
-    if(cmd_len)
-        sysctl_dma_select((sysctl_dma_channel_t)dma_send_channel_num, SYSCTL_DMA_SELECT_SSI0_TX_REQ + spi_num * 2);
     sysctl_dma_select((sysctl_dma_channel_t)dma_receive_channel_num, SYSCTL_DMA_SELECT_SSI0_RX_REQ + spi_num * 2);
-
     dmac_set_single_mode(dma_receive_channel_num, (void *)(&spi_handle->dr[0]), rx_buff, DMAC_ADDR_NOCHANGE, DMAC_ADDR_INCREMENT,
                            DMAC_MSIZE_1, DMAC_TRANS_WIDTH_32, rx_len);
-    if(cmd_len)
+    if(cmd_len && dma_send_channel_num < DMAC_CHANNEL_MAX)
+    {
+        sysctl_dma_select((sysctl_dma_channel_t)dma_send_channel_num, SYSCTL_DMA_SELECT_SSI0_TX_REQ + spi_num * 2);
         dmac_set_single_mode(dma_send_channel_num, cmd_buff, (void *)(&spi_handle->dr[0]), DMAC_ADDR_INCREMENT, DMAC_ADDR_NOCHANGE,
                            DMAC_MSIZE_4, DMAC_TRANS_WIDTH_32, cmd_len);
-    if(cmd_len == 0 && spi_get_frame_format(spi_num) == SPI_FF_STANDARD)
-        spi[spi_num]->dr[0] = 0xffffffff;
+    }
+    else
+    {
+        dma_send_channel_num = DMAC_CHANNEL_MAX;
+        if(cmd_len == 0)
+            spi[spi_num]->dr[0] = 0xffffffff;
+        uint32_t *cmd = (uint32_t *)cmd_buff;
+        while(cmd_len--)
+            spi[spi_num]->dr[0] = *cmd++;
+    }
     spi_handle->ser = 1U << chip_select;
-    if(cmd_len)
+    if(dma_send_channel_num < DMAC_CHANNEL_MAX)
         dmac_wait_done(dma_send_channel_num);
     dmac_wait_done(dma_receive_channel_num);
 
