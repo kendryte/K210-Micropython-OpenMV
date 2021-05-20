@@ -407,7 +407,7 @@ int cambus_scan_gc0328()
 
 int cambus_deinit_gc0328()
 {
-    fpioa_set_function(BSP_CAMERA_CMOS_PWDN_PIN_GC0328, FUNC_RESV0);
+    fpioa_set_function(BSP_CAMERA_CMOS_PWDN_PIN, FUNC_RESV0);
     fpioa_set_function(BSP_CAMERA_CMOS_XCLK_PIN, FUNC_RESV0);
     fpioa_set_function(BSP_CAMERA_CMOS_VSYNC_PIN, FUNC_RESV0);
     fpioa_set_function(BSP_CAMERA_CMOS_HREF_PIN, FUNC_RESV0);
